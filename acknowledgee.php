@@ -108,10 +108,14 @@ function acknowledgee_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
 }
 
 function acknowledgee_civicrm_buildForm( $formName, &$form ) {
-  //On the main donation page (id = 1) add the acknowledgee form fields
+  //On a donation page with IHO/IMO add the acknowledgee form fields
   if ($formName == 'CRM_Contribute_Form_Contribution_Main') {
-    $form_id = $form->get('id');
-    if ($form_id == 1) {
+    // Check if we have IHO/IMO enabled on a page.
+    if (isset($form->_values['soft_credit_types'])) {
+      CRM_Core_Region::instance('contribution-soft-credit-block')->add([
+        'template' => 'CRM/Contribute/Form/Contribution/Acknowledgee.tpl',
+      ]);
+      CRM_Core_Resources::singleton()->addScriptFile('org.ccr.acknowledgee', 'js/acknowledgee.js');
       $form->add('text', 'acknowledgee_first_name', ts('First Name'));
       $form->add('text', 'acknowledgee_last_name', ts('Last Name'));
       $form->add('text', 'acknowledgee_email', ts('Email'));
