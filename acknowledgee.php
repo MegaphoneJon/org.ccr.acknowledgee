@@ -147,67 +147,65 @@ function acknowledgee_civicrm_buildForm( $formName, &$form ) {
 
 function acknowledgee_civicrm_postProcess( $formName, &$form ) {
   if ($formName == 'CRM_Contribute_Form_Contribution_Confirm') {
-    $form_id = $form->get('id');
-    if ($form_id == 1) {
-      
-      //Currently only does this for the memorial.  Easy to add Honoree if need be
-      if ( isset($form->_values['honor']) && 
-           $form->_values['honor']['soft_credit_type'] == 'In Memory of' &&
-           !empty($form->_params['acknowledgee_first_name']) && 
-           !empty($form->_params['acknowledgee_last_name'])) {
+    //Currently only does this for the memorial.  Easy to add Honoree if need be
+    if ( isset($form->_values['honor']) && 
+         $form->_values['honor']['soft_credit_type'] == 'In Memory of' &&
+          !empty($form->_params['acknowledgee_first_name']) &&
+          !empty($form->_params['acknowledgee_last_name'])) {
 
-        //Set memorial id
-        $memorialee_cid = $form->_values['honor']['honor_id'];
-  
-        //Create initial API param arrays for contact, email and address creation
-        $acknowledgee_params = array(
-          'sequential' => 1,
-          'contact_type' => 'Individual'
-        );
-        $acknowledgee_email_params = array(
-          'sequential' => 1,
-          'location_type_id' => 1,
-        );
-        $acknowledgee_address_params = array(
-          'sequential' => 1,
-          'location_type_id' => 1,
-        );
- 
-        //Set the param values for contact and address creation
-        //count is a bit of hack, but it's simple and should always work in the case
-        $acknowledgee_count = 0;
-        foreach ($form->_params as $key => $param) {
-          if (substr($key, 0, 12) == 'acknowledgee') {
-            $acknowledgee_count++;
-            if ($acknowledgee_count < 3) {
-              $acknowledgee_params[substr($key, 13)] = $param;
-            } elseif ($acknowledgee_count == 3) {
-              $acknowledgee_email_params[substr($key, 13)] = $param;
-            } else {
-              $acknowledgee_address_params[substr($key, 13)] = $param;
-            }
+      //Set memorial id
+      $memorialee_cid = $form->_values['honor']['honor_id'];
+
+      //Create initial API param arrays for contact, email and address creation
+      $acknowledgee_params = array(
+        'sequential' => 1,
+        'contact_type' => 'Individual'
+      );
+      $acknowledgee_email_params = array(
+        'sequential' => 1,
+        'location_type_id' => 1,
+      );
+      $acknowledgee_address_params = array(
+        'sequential' => 1,
+        'location_type_id' => 1,
+      );
+
+      //Set the param values for contact and address creation
+      //count is a bit of hack, but it's simple and should always work in the case
+      $acknowledgee_count = 0;
+      foreach ($form->_params as $key => $param) {
+        if (substr($key, 0, 12) == 'acknowledgee') {
+          $acknowledgee_count++;
+          if ($acknowledgee_count < 3) {
+            $acknowledgee_params[substr($key, 13)] = $param;
+          }
+          elseif ($acknowledgee_count == 3) {
+            $acknowledgee_email_params[substr($key, 13)] = $param;
+          }
+          else {
+            $acknowledgee_address_params[substr($key, 13)] = $param;
           }
         }
- 
-        //Create the acknowledgee contact
-        $acknowledgee = civicrm_api3('Contact', 'create', $acknowledgee_params);
- 
-        //Create the acknowledgee email
-        $acknowledgee_cid = $acknowledgee_email_params['contact_id'] = $acknowledgee['id'];
-        $acknowledgee_email = civicrm_api3('Email', 'create', $acknowledgee_email_params);
-
-        //Create the acknowledgee address
-        $acknowledgee_address_params['contact_id'] = $acknowledgee_cid;
-        $acknowledgee_address = civicrm_api3('Address', 'create', $acknowledgee_address_params);
-
-        //Create the relationship between the memorialee and acknowledgee
-        $ack_relationship = civicrm_api3('Relationship', 'create', array(
-          'sequential' => 1,
-          'contact_id_a' => $memorialee_cid,
-          'contact_id_b' => $acknowledgee_cid,
-          'relationship_type_id' => 27,
-        ));
       }
+
+      //Create the acknowledgee contact
+      $acknowledgee = civicrm_api3('Contact', 'create', $acknowledgee_params);
+
+      //Create the acknowledgee email
+      $acknowledgee_cid = $acknowledgee_email_params['contact_id'] = $acknowledgee['id'];
+      $acknowledgee_email = civicrm_api3('Email', 'create', $acknowledgee_email_params);
+
+      //Create the acknowledgee address
+      $acknowledgee_address_params['contact_id'] = $acknowledgee_cid;
+      $acknowledgee_address = civicrm_api3('Address', 'create', $acknowledgee_address_params);
+
+      //Create the relationship between the memorialee and acknowledgee
+      $ack_relationship = civicrm_api3('Relationship', 'create', array(
+        'sequential' => 1,
+        'contact_id_a' => $memorialee_cid,
+        'contact_id_b' => $acknowledgee_cid,
+        'relationship_type_id' => 27,
+      ));
     }
   }
 }

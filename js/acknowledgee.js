@@ -9,11 +9,6 @@ CRM.$(function ($) {
     }
     if (enable == 'show') {
       $('.acknowledgee-section').show();
-      $('#honorType > .form-item').each(function () {
-        $(this).hide();
-      });
-      $('#honorType > #editrow-first_name').show();
-      $('#honorType > #editrow-last_name').show();
     } else {
       $('.acknowledgee-section').hide();
       $('#honorType > .form-item').each(function () {
