@@ -191,21 +191,27 @@ function acknowledgee_civicrm_postProcess( $formName, &$form ) {
       //Create the acknowledgee contact
       $acknowledgee = civicrm_api3('Contact', 'create', $acknowledgee_params);
 
-      //Create the acknowledgee email
+      //Create the acknowledgee email (if an email was entered).
       $acknowledgee_cid = $acknowledgee_email_params['contact_id'] = $acknowledgee['id'];
-      $acknowledgee_email = civicrm_api3('Email', 'create', $acknowledgee_email_params);
-
+      if ($acknowledgee_email_params['email']) {
+        $acknowledgee_email = civicrm_api3('Email', 'create', $acknowledgee_email_params);
+      }
       //Create the acknowledgee address
       $acknowledgee_address_params['contact_id'] = $acknowledgee_cid;
       $acknowledgee_address = civicrm_api3('Address', 'create', $acknowledgee_address_params);
 
-      //Create the relationship between the memorialee and acknowledgee
-      $ack_relationship = civicrm_api3('Relationship', 'create', array(
-        'sequential' => 1,
-        'contact_id_a' => $memorialee_cid,
-        'contact_id_b' => $acknowledgee_cid,
-        'relationship_type_id' => 27,
-      ));
+      // Populate the Acknowledgee field on the contribution
+      $acknowledgeeCustomField = getAcknowledgeeCustomField();
+      $result = civicrm_api3('Contribution', 'create', [
+        'id' => $form->_contributionID,
+        $acknowledgeeCustomField => $acknowledgee_cid,
+      ]);
+      CRM_Core_Error::debug_var('result', $result);
     }
   }
+}
+
+function getAcknowledgeeCustomField() {
+  $fieldNumber = civicrm_api3('CustomField', 'get', ['name' => "acknowledgee"])['id'];
+  return "custom_$fieldNumber";
 }
