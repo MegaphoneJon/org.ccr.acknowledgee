@@ -116,31 +116,15 @@ function acknowledgee_civicrm_buildForm( $formName, &$form ) {
         'template' => 'CRM/Contribute/Form/Contribution/Acknowledgee.tpl',
       ]);
       CRM_Core_Resources::singleton()->addScriptFile('org.ccr.acknowledgee', 'js/acknowledgee.js');
-      $form->add('text', 'acknowledgee_first_name', ts('First Name'));
-      $form->add('text', 'acknowledgee_last_name', ts('Last Name'));
-      $form->add('text', 'acknowledgee_email', ts('Email'));
-      $form->add('text', 'acknowledgee_street_address', ts('Street Address'));
-      $form->add('text', 'acknowledgee_supplemental_address_1', ts('Street Address 2'));
-      $form->add('text', 'acknowledgee_city', ts('City'));
-      $country = array(CRM_Core_PseudoConstant::country());
-      $form->addElement('select', 'acknowledgee_country_id', ts('Country'), $country[0], array('class' => 'crm-select2'));
-      $form->addChainSelect('acknowledgee_state_province_id');
-      $form->add('text', 'acknowledgee_postal_code', ts('Postal Code'));
-      $defaults['acknowledgee_country_id'] = 1228;
-      $form->setDefaults($defaults);
-      $form->assign('elements', 
-                     array(
-                      'acknowledgee_first_name',
-                      'acknowledgee_last_name',
-                      'acknowledgee_email',
-                      'acknowledgee_street_address',
-                      'acknowledgee_supplemental_address_1',
-                      'acknowledgee_city',
-                      'acknowledgee_country_id',
-                      'acknowledgee_state_province_id',
-                      'acknowledgee_postal_code',
-                     )
-                   );
+      $acknowledgeeProfileId = civicrm_api3('UFGroup', 'getvalue', ['return' => 'id', 'name' => 'acknowledgee']);
+      $acknowledgeeProfileFields = CRM_Core_BAO_UFGroup::getFields(
+      $acknowledgeeProfileId, FALSE, NULL, NULL, NULL, FALSE, NULL, TRUE, NULL, CRM_Core_Permission::CREATE
+      );
+      $form->assign('acknowledgeeProfileFields', $acknowledgeeProfileFields);
+      // add the form elements
+      foreach ($acknowledgeeProfileFields as $name => $field) {
+        CRM_Core_BAO_UFGroup::buildProfile($form, $field, CRM_Profile_Form::MODE_CREATE, NULL, FALSE, FALSE, NULL, 'acknowledgee');
+      }
     }
   }
 }
@@ -148,65 +132,24 @@ function acknowledgee_civicrm_buildForm( $formName, &$form ) {
 function acknowledgee_civicrm_postProcess( $formName, &$form ) {
   if ($formName == 'CRM_Contribute_Form_Contribution_Confirm') {
     //Currently only does this for the memorial.  Easy to add Honoree if need be
-    if ( isset($form->_values['honor']) && 
-         $form->_values['honor']['soft_credit_type'] == 'In Memory of' &&
-          !empty($form->_params['acknowledgee_first_name']) &&
-          !empty($form->_params['acknowledgee_last_name'])) {
+    if (isset($form->_values['honor']) &&
+    $form->_values['honor']['soft_credit_type'] == 'In Memory of' &&
+    isset($form->_params['acknowledgee']) &&
+    !empty($form->_params['acknowledgee']['first_name']) &&
+    !empty($form->_params['acknowledgee']['last_name'])) {
 
-      //Set memorial id
-      $memorialee_cid = $form->_values['honor']['honor_id'];
+      $acknowledgeeParams = $form->_params['acknowledgee'];
+      $fields = CRM_Contact_BAO_Contact::exportableFields('Individual');
+      $result = civicrm_api3('Contact', 'duplicatecheck', $acknowledgeeParams);
 
-      //Create initial API param arrays for contact, email and address creation
-      $acknowledgee_params = array(
-        'sequential' => 1,
-        'contact_type' => 'Individual'
-      );
-      $acknowledgee_email_params = array(
-        'sequential' => 1,
-        'location_type_id' => 1,
-      );
-      $acknowledgee_address_params = array(
-        'sequential' => 1,
-        'location_type_id' => 1,
-      );
-
-      //Set the param values for contact and address creation
-      //count is a bit of hack, but it's simple and should always work in the case
-      $acknowledgee_count = 0;
-      foreach ($form->_params as $key => $param) {
-        if (substr($key, 0, 12) == 'acknowledgee') {
-          $acknowledgee_count++;
-          if ($acknowledgee_count < 3) {
-            $acknowledgee_params[substr($key, 13)] = $param;
-          }
-          elseif ($acknowledgee_count == 3) {
-            $acknowledgee_email_params[substr($key, 13)] = $param;
-          }
-          else {
-            $acknowledgee_address_params[substr($key, 13)] = $param;
-          }
-        }
-      }
-
-      //Create the acknowledgee contact
-      $acknowledgee = civicrm_api3('Contact', 'create', $acknowledgee_params);
-
-      //Create the acknowledgee email (if an email was entered).
-      $acknowledgee_cid = $acknowledgee_email_params['contact_id'] = $acknowledgee['id'];
-      if ($acknowledgee_email_params['email']) {
-        $acknowledgee_email = civicrm_api3('Email', 'create', $acknowledgee_email_params);
-      }
-      //Create the acknowledgee address
-      $acknowledgee_address_params['contact_id'] = $acknowledgee_cid;
-      $acknowledgee_address = civicrm_api3('Address', 'create', $acknowledgee_address_params);
+      $acknowledgeeId = CRM_Contact_BAO_Contact::createProfileContact($acknowledgeeParams, CRM_Core_DAO::$_nullArray);
 
       // Populate the Acknowledgee field on the contribution
       $acknowledgeeCustomField = getAcknowledgeeCustomField();
       $result = civicrm_api3('Contribution', 'create', [
         'id' => $form->_contributionID,
-        $acknowledgeeCustomField => $acknowledgee_cid,
+        $acknowledgeeCustomField => $acknowledgeeId,
       ]);
-      CRM_Core_Error::debug_var('result', $result);
     }
   }
 }
