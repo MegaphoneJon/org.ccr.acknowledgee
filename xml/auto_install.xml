@@ -92,7 +92,7 @@
       <visibility>User and User Admin Only</visibility>
       <in_selector>0</in_selector>
       <is_searchable>0</is_searchable>
-      <label>Street Adress 2</label>
+      <label>Street Address 2</label>
       <field_type>Contact</field_type>
       <is_multi_summary>0</is_multi_summary>
       <profile_group_name>Acknowledgee</profile_group_name>
