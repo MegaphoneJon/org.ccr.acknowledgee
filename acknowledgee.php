@@ -163,3 +163,54 @@ function getAcknowledgeeCustomField() {
   $fieldNumber = civicrm_api3('CustomField', 'get', ['name' => "acknowledgee"])['id'];
   return "custom_$fieldNumber";
 }
+
+function acknowledgee_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors) {
+  // You can't acknowledge someone without basic contact info.
+  if ($formName == 'CRM_Contribute_Form_Contribution_Main' &&
+  isset($fields['acknowledgee']) &&
+  ($fields['acknowledgee']['first_name'] || $fields['acknowledgee']['last_name'])) {
+
+    // Is there a first AND last name for acknowledgee?
+    if (!($fields['acknowledgee']['first_name'] && $fields['acknowledgee']['last_name'])) {
+      //What ugly syntax, but oh well.
+      $errors['acknowledgee[first_name]'] = ts('Acknowledgees must have both a first and last name.');
+    }
+    // Detect email fields.
+    $hasEmail = FALSE;
+    foreach ($fields['acknowledgee'] as $key => $value) {
+      if (substr($key, 0, 5) == 'email') {
+        // Account for multiple email fields.
+        if ($value) {
+          $hasEmail = TRUE;
+        }
+        // We're not saying there IS an error, but if there is, it goes here.
+        $emailErrorField = "acknowledgee[$key]";
+      }
+    }
+    // Detect address fields.
+    // Uncovered edge case: You have multiple addresses and someone fills in partial info for each.  Not realistic.
+    foreach ($fields['acknowledgee'] as $key => $value) {
+      if (substr($key, 0, 14) == 'street_address' && $value) {
+        $hasStreet = TRUE;
+        // We're not saying there IS an error, but if there is, it goes here.
+        $addressErrorField = "acknowledgee[$key]";
+      }
+      if (substr($key, 0, 4) == 'city' && $value) {
+        $hasCity = TRUE;
+      }
+      if (substr($key, 0, 14) == 'state_province' && $value) {
+        $hasState = TRUE;
+      }
+      if (substr($key, 0, 7) == 'country' && $value) {
+        $hasCountry = TRUE;
+      }
+      if (substr($key, 0, 11) == 'postal_code' && $value) {
+        $hasPostalCode = TRUE;
+      }
+    }
+    $hasFullAddress = $hasStreet && $hasCity && $hasState && $hasCountry && $hasPostalCode;
+    if (!($hasEmail || $hasFullAddress)) {
+      $errors[$emailErrorField] = $errors[$addressErrorField] = ts('We need an email or postal address to send our acknowledgment.');
+    }
+  }
+}
