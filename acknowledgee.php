@@ -122,7 +122,7 @@ function acknowledgee_civicrm_buildForm( $formName, &$form ) {
       );
       $form->assign('acknowledgeeProfileFields', $acknowledgeeProfileFields);
       // add the form elements
-      foreach ($acknowledgeeProfileFields as $name => $field) {
+      foreach ($acknowledgeeProfileFields as $field) {
         CRM_Core_BAO_UFGroup::buildProfile($form, $field, CRM_Profile_Form::MODE_CREATE, NULL, FALSE, FALSE, NULL, 'acknowledgee');
       }
     }
@@ -138,15 +138,20 @@ function acknowledgee_civicrm_postProcess( $formName, &$form ) {
     !empty($form->_params['acknowledgee']['first_name']) &&
     !empty($form->_params['acknowledgee']['last_name'])) {
 
-      $acknowledgeeParams = $form->_params['acknowledgee'];
-      $fields = CRM_Contact_BAO_Contact::exportableFields('Individual');
-      $result = civicrm_api3('Contact', 'duplicatecheck', $acknowledgeeParams);
-
-      $acknowledgeeId = CRM_Contact_BAO_Contact::createProfileContact($acknowledgeeParams, CRM_Core_DAO::$_nullArray);
+      // First, check if this is a duplicate of a record already in the database.
+      $acknowledgeeParams['match'] = $form->_params['acknowledgee'];
+      $acknowledgeeParams['match']['contact_type'] = 'Individual';
+      $duplicateIds = civicrm_api3('Contact', 'duplicatecheck', $acknowledgeeParams);
+      $acknowledgeeId = NULL;
+      if ($duplicateIds['count']) {
+        reset($duplicateIds['values']);
+        $acknowledgeeId = key($duplicateIds['values']);
+      }
+      $acknowledgeeId = CRM_Contact_BAO_Contact::createProfileContact($acknowledgeeParams['match'], CRM_Core_DAO::$_nullArray, $acknowledgeeId);
 
       // Populate the Acknowledgee field on the contribution
       $acknowledgeeCustomField = getAcknowledgeeCustomField();
-      $result = civicrm_api3('Contribution', 'create', [
+      civicrm_api3('Contribution', 'create', [
         'id' => $form->_contributionID,
         $acknowledgeeCustomField => $acknowledgeeId,
       ]);
