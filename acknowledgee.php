@@ -110,7 +110,8 @@ function acknowledgee_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
 function acknowledgee_civicrm_buildForm( $formName, &$form ) {
   //On a donation page with IHO/IMO add the acknowledgee form fields
   if ($formName == 'CRM_Contribute_Form_Contribution_Main') {
-    // Check if we have IHO/IMO enabled on a page.
+    // Check if we have IHO/IMO enabled on a page.  If so, add the "acknowledgee"
+    // block and the JS to support it.
     if (isset($form->_values['soft_credit_types'])) {
       CRM_Core_Region::instance('contribution-soft-credit-block')->add([
         'template' => 'CRM/Contribute/Form/Contribution/Acknowledgee.tpl',
@@ -120,26 +121,40 @@ function acknowledgee_civicrm_buildForm( $formName, &$form ) {
       $acknowledgeeProfileFields = CRM_Core_BAO_UFGroup::getFields(
       $acknowledgeeProfileId, FALSE, NULL, NULL, NULL, FALSE, NULL, TRUE, NULL, CRM_Core_Permission::CREATE
       );
-      $form->assign('acknowledgeeProfileFields', $acknowledgeeProfileFields);
+      /* Ugh - adding an additional profile to the Contribution form results in that field's data being used for
+       * deduping purposes - thanks to CRM_Dedupe_Finder::formatParams() leading with a "flatten" method.
+       * So before that happens, we're gonna obfuscate these form names.
+       */
+      foreach ($acknowledgeeProfileFields as $key => $value) {
+        $obfuscated[$key . '-obfuscated'] = $value;
+        $obfuscated[$key . '-obfuscated']['name'] = $key . '-obfuscated';
+      }
+      $form->assign('acknowledgeeProfileFields', $obfuscated);
       // add the form elements
-      foreach ($acknowledgeeProfileFields as $field) {
+      foreach ($obfuscated as $field) {
         CRM_Core_BAO_UFGroup::buildProfile($form, $field, CRM_Profile_Form::MODE_CREATE, NULL, FALSE, FALSE, NULL, 'acknowledgee');
       }
     }
   }
 }
 
-function acknowledgee_civicrm_postProcess( $formName, &$form ) {
+function acknowledgee_civicrm_postProcess($formName, &$form) {
+
   if ($formName == 'CRM_Contribute_Form_Contribution_Confirm') {
-    //Currently only does this for the memorial.  Easy to add Honoree if need be
+    //Currently only does this for the memorial.  Easy to add Honoree if need be.
     if (isset($form->_values['honor']) &&
     $form->_values['honor']['soft_credit_type'] == 'In Memory of' &&
     isset($form->_params['acknowledgee']) &&
-    !empty($form->_params['acknowledgee']['first_name']) &&
-    !empty($form->_params['acknowledgee']['last_name'])) {
+    !empty($form->_params['acknowledgee']['first_name-obfuscated']) &&
+    !empty($form->_params['acknowledgee']['last_name-obfuscated'])) {
 
+      // De-obfuscate the fields.
+      foreach ($form->_params['acknowledgee'] as $obfuscatedKey => $value) {
+        $deobfuscatedKey = substr($obfuscatedKey, 0, -11);
+        $deobfuscatedFields[$deobfuscatedKey] = $value;
+      }
       // First, check if this is a duplicate of a record already in the database.
-      $acknowledgeeParams['match'] = $form->_params['acknowledgee'];
+      $acknowledgeeParams['match'] = $deobfuscatedFields;
       $acknowledgeeParams['match']['contact_type'] = 'Individual';
       $duplicateIds = civicrm_api3('Contact', 'duplicatecheck', $acknowledgeeParams);
       $acknowledgeeId = NULL;
