@@ -83,6 +83,23 @@ function acknowledgee_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
  */
 function acknowledgee_civicrm_managed(&$entities) {
   _acknowledgee_civix_civicrm_managed($entities);
+  $entities[] = [
+    'module' => 'org.ccr.acknowledgee',
+    'name' => 'acknowledgee_relationship_type',
+    'entity' => 'RelationshipType',
+    'params' => [
+      'version' => 3,
+      'name_a_b' => 'is Memorial Acknowledgee of',
+      'label_a_b' => 'is Memorial Acknowledgee of',
+      'name_b_a' => 'Memorial Acknowledgee is',
+      'label_b_a' => 'Memorial Acknowledgee is',
+      'description' => 'Provided by Acknowledgee extension',
+      'contact_type_a' => NULL,
+      'contact_type_b' => NULL,
+      'is_reserved' => 1,
+      'is_active' => 1,
+    ],
+  ];
 }
 
 /**
@@ -170,6 +187,16 @@ function acknowledgee_civicrm_postProcess($formName, &$form) {
         'id' => $form->_contributionID,
         $acknowledgeeCustomField => $acknowledgeeId,
       ]);
+      // Create a relationship between acknowledgee an memorialee.
+      $memorialeeId = $form->_values['honor']['honor_id'];
+      $relationshipTypeId = civicrm_api3('RelationshipType', 'get', ['name_a_b' => 'is Memorial Acknowledgee of'])['id'];
+      if ($memorialeeId && $acknowledgeeId && $relationshipTypeId) {
+        civicrm_api3('Relationship', 'create', [
+          'contact_id_a' => $acknowledgeeId,
+          'contact_id_b' => $memorialeeId,
+          'relationship_type_id' => $relationshipTypeId,
+        ]);
+      }
     }
   }
 }
