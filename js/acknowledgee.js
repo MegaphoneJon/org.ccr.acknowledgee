@@ -1,6 +1,6 @@
 CRM.$(function ($) {
   // Position the acknowledgee block.
-  $('.acknowledgee-section').insertAfter('#honorType');
+  $('.acknowledgee-section').appendTo('#honorType');
   // Show/hide the acknowledgee block.
   function enableAcknowledgee(enable = null) {
     var selectedValue = $('input[name="soft_credit_type_id"]:checked');
