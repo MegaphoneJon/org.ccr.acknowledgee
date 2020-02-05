@@ -64,8 +64,9 @@ function acknowledgee_civicrm_disable() {
  * @param $op string, the type of operation being performed; 'check' or 'enqueue'
  * @param $queue CRM_Queue_Queue, (for 'enqueue') the modifiable list of pending up upgrade tasks
  *
- * @return mixed  based on op. for 'check', returns array(boolean) (TRUE if upgrades are pending)
- *                for 'enqueue', returns void
+ * @return mixed
+ *   based on op. for 'check', returns array(boolean) (TRUE if upgrades are pending)
+ *   for 'enqueue', returns void
  *
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_upgrade
  */
@@ -124,7 +125,7 @@ function acknowledgee_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
   _acknowledgee_civix_civicrm_alterSettingsFolders($metaDataFolders);
 }
 
-function acknowledgee_civicrm_buildForm( $formName, &$form ) {
+function acknowledgee_civicrm_buildForm($formName, &$form) {
   //On a donation page with IHO/IMO add the acknowledgee form fields
   if ($formName == 'CRM_Contribute_Form_Contribution_Main') {
     // Check if we have IHO/IMO enabled on a page.  If so, add the "acknowledgee"
@@ -134,10 +135,7 @@ function acknowledgee_civicrm_buildForm( $formName, &$form ) {
         'template' => 'CRM/Contribute/Form/Contribution/Acknowledgee.tpl',
       ]);
       CRM_Core_Resources::singleton()->addScriptFile('org.ccr.acknowledgee', 'js/acknowledgee.js');
-      $acknowledgeeProfileId = civicrm_api3('UFGroup', 'getvalue', ['return' => 'id', 'name' => 'acknowledgee']);
-      $acknowledgeeProfileFields = CRM_Core_BAO_UFGroup::getFields(
-      $acknowledgeeProfileId, FALSE, NULL, NULL, NULL, FALSE, NULL, TRUE, NULL, CRM_Core_Permission::CREATE
-      );
+      $acknowledgeeProfileFields = _acknowledgee_get_profile_fields(CRM_Core_Permission::CREATE);
       /* Ugh - adding an additional profile to the Contribution form results in that field's data being used for
        * deduping purposes - thanks to CRM_Dedupe_Finder::formatParams() leading with a "flatten" method.
        * So before that happens, we're gonna obfuscate these form names.
@@ -153,10 +151,48 @@ function acknowledgee_civicrm_buildForm( $formName, &$form ) {
       }
     }
   }
+  if ($formName == 'CRM_Contribute_Form_Contribution_ThankYou') {
+    // Add the acknowledgee info to the thank-you page as well.
+    // De-obfuscate the fields.
+    foreach ($form->_params['acknowledgee'] as $obfuscatedKey => $value) {
+      $deobfuscatedKey = substr($obfuscatedKey, 0, -11);
+      $form->_params['acknowledgee'][$deobfuscatedKey] = $value;
+      unset($form->_params['acknowledgee'][$obfuscatedKey]);
+    }
+    // Add the acknowledgee info template and position accordingly.
+    $acknowledgeeProfileFields = _acknowledgee_get_profile_fields(CRM_Core_Permission::VIEW);
+    // Build an array to assign to the template.
+    foreach ($form->_params['acknowledgee'] as $fieldName => $value) {
+      // Ugh - this should do pseudoconstant lookup from metadata, but it's late.
+      if ($value && substr($fieldName, 0, 7) == 'country') {
+        $value = CRM_Core_PseudoConstant::country($value);
+      }
+      if ($value && substr($fieldName, 0, 14) === 'state_province') {
+        $value = CRM_Core_PseudoConstant::stateProvince($value);
+      }
+      $acknowledgeeProfileValues[$fieldName]['title'] = $acknowledgeeProfileFields[$fieldName]['title'];
+      $acknowledgeeProfileValues[$fieldName]['value'] = $value;
+    }
+    
+    $form->assign('acknowledgeeProfileFields', $acknowledgeeProfileFields);
+    $form->assign('acknowledgeeProfileValues', $acknowledgeeProfileValues);
+    CRM_Core_Region::instance('page-body')->add([
+      'template' => 'CRM/Contribute/Form/Contribution/AcknowledgeeThankYou.tpl',
+    ]);
+    CRM_Core_Resources::singleton()->addScript("CRM.$('.honor_block-group').after(CRM.$('.acknowledgee_block-group'));");
+  }
+}
+
+function _acknowledgee_get_profile_fields($mode) {
+  $acknowledgeeProfileId = civicrm_api3('UFGroup', 'getvalue', ['return' => 'id', 'name' => 'acknowledgee']);
+  $acknowledgeeProfileFields = CRM_Core_BAO_UFGroup::getFields(
+  $acknowledgeeProfileId, FALSE, NULL, NULL, NULL, FALSE, NULL, TRUE, NULL, $mode
+  );
+  return $acknowledgeeProfileFields;
 }
 
 function acknowledgee_civicrm_postProcess($formName, &$form) {
-
+  // If this is the confirmation screen, check to see if the acknowledgee fields are populated, and create an acknowledgee if necessary.
   if ($formName == 'CRM_Contribute_Form_Contribution_Confirm') {
     //Currently only does this for the memorial.  Easy to add Honoree if need be.
     if (isset($form->_values['honor']) &&
