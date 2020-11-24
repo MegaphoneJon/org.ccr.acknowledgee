@@ -175,7 +175,9 @@ function acknowledgee_civicrm_buildForm($formName, &$form) {
     }
 
     $form->assign('acknowledgeeProfileFields', $acknowledgeeProfileFields);
-    $form->assign('acknowledgeeProfileValues', $acknowledgeeProfileValues);
+    if ($acknowledgeeProfileValues) {
+      $form->assign('acknowledgeeProfileValues', $acknowledgeeProfileValues);
+    }
     CRM_Core_Region::instance('page-body')->add([
       'template' => 'CRM/Contribute/Form/Contribution/AcknowledgeeThankYou.tpl',
     ]);
