@@ -173,7 +173,7 @@ function acknowledgee_civicrm_buildForm($formName, &$form) {
       $acknowledgeeProfileValues[$fieldName]['title'] = $acknowledgeeProfileFields[$fieldName]['title'];
       $acknowledgeeProfileValues[$fieldName]['value'] = $value;
     }
-    
+
     $form->assign('acknowledgeeProfileFields', $acknowledgeeProfileFields);
     $form->assign('acknowledgeeProfileValues', $acknowledgeeProfileValues);
     CRM_Core_Region::instance('page-body')->add([
@@ -292,3 +292,21 @@ function acknowledgee_civicrm_validateForm($formName, &$fields, &$files, &$form,
     }
   }
 }
+
+/**
+ * Implements hook_civicrm_alterMailParams().
+ *
+ * When sending a mail receipt, inject the acknowledgee data if it's a contribution online receipt.
+ */
+// function acknowledgee_civicrm_alterMailParams(&$params, $context) {
+//   if (($params['valueName'] ?? FALSE) == 'contribution_online_receipt') {
+//     // Check if this contribution has an acknowledgee.
+//     $contributionId = $params['tplParams']['contributionID'];
+//     $acknowledgeeCustomField = getAcknowledgeeCustomField();
+//     $result = civicrm_api3('Contribution', 'get', [
+//       'sequential' => 1,
+//       'return' => [$acknowledgeeCustomField],
+//       'id' => $contributionId,
+//     ])['values'][0];
+//   }
+// }
