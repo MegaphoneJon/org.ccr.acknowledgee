@@ -153,6 +153,12 @@ function acknowledgee_civicrm_buildForm($formName, &$form) {
   }
   if ($formName == 'CRM_Contribute_Form_Contribution_ThankYou') {
     // Add the acknowledgee info to the thank-you page as well.
+    // First make sure we have acknowledgee info
+    if (!isset($form->_params['acknowledgee']) ||
+    empty($form->_params['acknowledgee']['first_name-obfuscated']) ||
+    empty($form->_params['acknowledgee']['last_name-obfuscated'])) {
+      return;
+    }
     // De-obfuscate the fields.
     foreach ($form->_params['acknowledgee'] as $obfuscatedKey => $value) {
       $deobfuscatedKey = substr($obfuscatedKey, 0, -11);
